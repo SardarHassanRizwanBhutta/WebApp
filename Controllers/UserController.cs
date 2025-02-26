@@ -10,49 +10,62 @@ using WebApp.Models;
 namespace WebApp.Controllers
 {
     // This controller responds to web API requests
-    [Route("api/[controller]")]
+    [Route("users")]
     [ApiController]
     public class UserController : ControllerBase
     {
         private readonly UserContext _context;
 
-        public UserController(UserContext context)
+        private readonly IMyDependency _myDependency;
+
+        private readonly ILogger<UserController> _logger;
+
+        public UserController(UserContext context, IMyDependency myDependency, ILogger<UserController> logger)
         {
             _context = context;
+            _myDependency = myDependency;
+            _logger = logger;
         }
 
-        // GET: api/User
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<UserModel>>> GetUserModels()
+        public async Task<ActionResult<object>> GetUsers()
         {
-            return await _context.UserModels.ToListAsync();
-        }
-
-        // GET: api/User/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<UserModel>> GetUserModel(long id)
-        {
-            var userModel = await _context.UserModels.FindAsync(id);
-
-            if (userModel == null)
+            try
             {
-                return NotFound();
+                _logger.LogInformation("Request for post has been made");
+                _myDependency.LogMessage("Request for post has been made");
+                var user = await _context.Users.ToListAsync();
+                return Ok(new {message = "Success", data = user});
             }
-
-            return userModel;
+            catch (Exception error)
+            {
+                _logger.LogError(error.Message);
+                return StatusCode(500, new { message = "An Expected Error Occured", data = error.Message });
+            }
         }
 
-        // PUT: api/User/5
+        // GET: users/5
+        [HttpGet("{id}")] 
+        public async Task<ActionResult<User>> GetUser(long id) 
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) { 
+                return BadRequest(new {message = "User Not Found", data = (object)null });
+            }
+            return Ok(new {message = "Success", data = user });
+        }
+
+        // PUT: users/id
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutUserModel(long id, UserModel userModel)
+        public async Task<IActionResult> UpdateUser(long id, User user)
         {
-            if (id != userModel.Id)
+            if (id != user.Id)
             {
                 return BadRequest();
             }
 
-            _context.Entry(userModel).State = EntityState.Modified;
+            _context.Entry(user).State = EntityState.Modified;
 
             try
             {
@@ -60,7 +73,7 @@ namespace WebApp.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!UserModelExists(id))
+                if (!UserExists(id))
                 {
                     return NotFound();
                 }
@@ -73,36 +86,43 @@ namespace WebApp.Controllers
             return NoContent();
         }
 
-        // POST: api/User
+        // POST: users
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<UserModel>> PostUserModel(UserModel userModel)
+        public async Task<ActionResult<User>> AddUser(User user)
         {
-            _context.UserModels.Add(userModel);
+            try {
+            _context.Users.Add(user);
             await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetUserModel", new { id = userModel.Id }, userModel);
+            // return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
+            return Ok(new { message = "Success", data = user});
+            }
+            catch(Exception error) {
+                _logger.LogError(error.Message);
+                return StatusCode(500, new { message = "An Expected Error Occured", data = error.Message });
+            } 
         }
 
         // DELETE: api/User/5
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUserModel(long id)
+        public async Task<IActionResult> DeleteUser(long id)
         {
-            var userModel = await _context.UserModels.FindAsync(id);
-            if (userModel == null)
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
             {
-                return NotFound();
+                return NotFound( new {message = "User Not Found", data = (object)null});
             }
 
-            _context.UserModels.Remove(userModel);
-            await _context.SaveChangesAsync();
+           _context.Users.Remove(user);
+           await _context.SaveChangesAsync();
 
-            return NoContent();
+           return Ok(new { message = "Success", data = user });
+            // return NoContent();
         }
 
-        private bool UserModelExists(long id)
+        private bool UserExists(long id)
         {
-            return _context.UserModels.Any(e => e.Id == id);
+            return _context.Users.Any(e => e.Id == id);
         }
     }
 }
